@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-ci-cd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-ci-cd
+  template:
+    metadata:
+      labels:
+        app: demo-ci-cd
+    spec:
+      containers:
+      - name: web
+        image: phumthanarat/demo-ci-cd:{{TAG}}
+        ports:
+        - containerPort: 80
+
