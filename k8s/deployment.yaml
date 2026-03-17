@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: demo-ci-cd
+  namespace: jenkins   
 spec:
   replicas: 1
   selector:
@@ -17,4 +18,3 @@ spec:
         image: phumthanarat/demo-ci-cd:{{TAG}}
         ports:
         - containerPort: 80
-
