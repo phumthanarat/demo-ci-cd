@@ -24,8 +24,7 @@ spec:
   containers:
   - name: docker
     image: docker:26-cli
-    command: ["sleep"]
-    args: ["99d"]
+    command: ["cat"]
     tty: true
     volumeMounts:
     - name: dockersock
@@ -48,7 +47,7 @@ spec:
                     )]) {
 
                         sh """
-                        echo \$PASS | docker login -u \$USER --password-stdin
+                        echo $PASS | docker login -u $USER --password-stdin
 
                         docker build -t $IMAGE_NAME:$TAG .
 
@@ -71,9 +70,8 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:1.30
-    command: ["sleep"]
-    args: ["99d"]
+    image: bitnami/kubectl:1.29.3
+    command: ["cat"]
     tty: true
 """
                 }
@@ -82,7 +80,7 @@ spec:
             steps {
                 container('kubectl') {
                     sh """
-                    sleep 5
+                    echo "Deploying to Kubernetes..."
 
                     kubectl get nodes
 
@@ -90,6 +88,8 @@ spec:
 
                     kubectl set image deployment/demo-ci-cd \
                         demo-ci-cd=$IMAGE_NAME:$TAG
+
+                    kubectl rollout status deployment/demo-ci-cd
                     """
                 }
             }
