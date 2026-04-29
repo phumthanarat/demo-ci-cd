@@ -1,16 +1,34 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE = "phumthanarat/demo-ci-cd:${BUILD_NUMBER}"
+    }
+
     stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
 
         stage('Build & Push') {
             steps {
-                script {
-                    docker.withRegistry('', 'dockerhub-creds') {
-                        def app = docker.build("phumthanarat/demo-ci-cd:${BUILD_NUMBER}")
-                        app.push()
-                        app.push("latest")
-                    }
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+                    sh """
+                        echo $PASS | docker login -u $USER --password-stdin
+
+                        docker build -t $IMAGE .
+                        docker tag $IMAGE phumthanarat/demo-ci-cd:latest
+
+                        docker push $IMAGE
+                        docker push phumthanarat/demo-ci-cd:latest
+                    """
                 }
             }
         }
@@ -18,11 +36,10 @@ pipeline {
         stage('Deploy') {
             steps {
                 podTemplate(
-                    inheritFrom: 'default',
                     containers: [
                         containerTemplate(
                             name: 'kubectl',
-                            image: 'bitnami/kubectl:1.29',   // ✅ แก้ตรงนี้
+                            image: 'bitnami/kubectl:1.29',
                             command: 'cat',
                             ttyEnabled: true
                         )
@@ -31,9 +48,9 @@ pipeline {
                     node(POD_LABEL) {
                         container('kubectl') {
                             sh """
-                                kubectl version --client
                                 kubectl apply -f k8s/
-                                kubectl set image deployment/demo-ci-cd demo-ci-cd=phumthanarat/demo-ci-cd:${BUILD_NUMBER}
+                                kubectl set image deployment/demo-ci-cd \
+                                  demo-ci-cd=$IMAGE
                             """
                         }
                     }
