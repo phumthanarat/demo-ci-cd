@@ -67,7 +67,7 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:latest
+    image: bitnami/kubectl:1.30
     command: ["cat"]
     tty: true
 """
@@ -77,6 +77,9 @@ spec:
             steps {
                 container('kubectl') {
                     sh '''
+                        kubectl version --client
+                        kubectl get nodes
+
                         kubectl apply -f k8s/
                         kubectl rollout status deployment/demo-ci-cd
                     '''
