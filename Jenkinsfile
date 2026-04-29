@@ -70,7 +70,7 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:1.29.3
+    image: bitnami/kubectl:latest
     command: ["cat"]
     tty: true
 """
