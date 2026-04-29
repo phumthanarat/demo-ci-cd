@@ -1,13 +1,42 @@
-stage('Build & Push') {
-  container('kaniko') {
-    sh '''
-      export DOCKER_CONFIG=/kaniko/.docker
+pipeline {
+    agent none
 
-      /kaniko/executor \
-        --context . \
-        --dockerfile Dockerfile \
-        --destination phumthanarat/demo-ci-cd:${BUILD_NUMBER} \
-        --destination phumthanarat/demo-ci-cd:latest
-    '''
-  }
+    stages {
+
+        stage('Build & Push') {
+            agent {
+                kubernetes {
+                    label 'docker-agent'
+                    yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: docker
+    image: docker:26-cli
+    command:
+    - cat
+    tty: true
+    volumeMounts:
+    - name: dockersock
+      mountPath: /var/run/docker.sock
+
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+"""
+                }
+            }
+
+            steps {
+                container('docker') {
+                    sh '''
+                        docker version
+                        docker build -t test-image .
+                    '''
+                }
+            }
+        }
+    }
 }
