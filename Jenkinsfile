@@ -1,6 +1,11 @@
 pipeline {
     agent none
 
+    environment {
+        IMAGE = "phumthanarat/demo-ci-cd"
+        TAG = "${BUILD_NUMBER}"
+    }
+
     stages {
 
         stage('Build & Push') {
@@ -31,11 +36,40 @@ spec:
 
             steps {
                 container('docker') {
-                    sh '''
-                        docker version
-                        docker build -t test-image .
-                    '''
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-token',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+
+                        sh '''
+                            echo "=== Docker Version ==="
+                            docker version
+
+                            echo "=== Login ==="
+                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+
+                            echo "=== Build ==="
+                            docker build -t $IMAGE:$TAG .
+                            docker tag $IMAGE:$TAG $IMAGE:latest
+
+                            echo "=== Push ==="
+                            docker push $IMAGE:$TAG
+                            docker push $IMAGE:latest
+                        '''
+                    }
                 }
+            }
+        }
+
+        stage('Deploy') {
+            agent any
+
+            steps {
+                sh '''
+                    kubectl apply -f k8s/
+                    kubectl rollout status deployment/demo-ci-cd
+                '''
             }
         }
     }
