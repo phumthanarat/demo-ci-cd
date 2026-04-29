@@ -1,91 +1,42 @@
 pipeline {
-    agent none
-
-    environment {
-        IMAGE = "phumthanarat/demo-ci-cd"
-        TAG = "${BUILD_NUMBER}"
-    }
+    agent any
 
     stages {
 
         stage('Build & Push') {
-            agent {
-                kubernetes {
-                    label 'docker-agent'
-                    defaultContainer 'docker'
-                    yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: docker
-    image: docker:26-cli
-    command: ["cat"]
-    tty: true
-    volumeMounts:
-    - name: dockersock
-      mountPath: /var/run/docker.sock
-
-  volumes:
-  - name: dockersock
-    hostPath:
-      path: /var/run/docker.sock
-"""
-                }
-            }
-
             steps {
-                container('docker') {
-                    withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
-
-                        sh '''
-                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-
-                            docker build -t $IMAGE:$TAG .
-                            docker tag $IMAGE:$TAG $IMAGE:latest
-
-                            docker push $IMAGE:$TAG
-                            docker push $IMAGE:latest
-                        '''
+                script {
+                    docker.withRegistry('', 'dockerhub-creds') {
+                        def app = docker.build("phumthanarat/demo-ci-cd:${BUILD_NUMBER}")
+                        app.push()
+                        app.push("latest")
                     }
                 }
             }
         }
 
         stage('Deploy') {
-            agent {
-                kubernetes {
-                    label 'kubectl-agent'
-                    defaultContainer 'kubectl'
-                    yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: kubectl
-    image: bitnami/kubectl:1.29.0
-    command: ["sleep"]
-    args: ["infinity"]
-    tty: true
-"""
-                }
-            }
-
             steps {
-                container('kubectl') {
-                    sh '''#!/bin/sh
-                        set -e
-
-                        kubectl version --client
-                        kubectl get nodes
-
-                        kubectl apply -f k8s/
-                        kubectl rollout status deployment/demo-ci-cd
-                    '''
+                podTemplate(
+                    inheritFrom: 'default',
+                    containers: [
+                        containerTemplate(
+                            name: 'kubectl',
+                            image: 'bitnami/kubectl:1.29',   // ✅ แก้ตรงนี้
+                            command: 'cat',
+                            ttyEnabled: true
+                        )
+                    ]
+                ) {
+                    node(POD_LABEL) {
+                        container('kubectl') {
+                            sh """
+                                kubectl version --client
+                                kubectl apply -f k8s/
+                                kubectl set image deployment/demo-ci-cd demo-ci-cd=phumthanarat/demo-ci-cd:${BUILD_NUMBER}
+                            """
+                        }
+                    }
                 }
             }
         }
