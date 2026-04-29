@@ -24,7 +24,8 @@ spec:
   containers:
   - name: docker
     image: docker:26-cli
-    command: ['sh', '-c', 'cat']
+    command: ["sleep"]
+    args: ["99d"]
     tty: true
     volumeMounts:
     - name: dockersock
@@ -40,17 +41,22 @@ spec:
 
             steps {
                 container('docker') {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-creds',
                         usernameVariable: 'USER',
-                        passwordVariable: 'PASS')]) {
+                        passwordVariable: 'PASS'
+                    )]) {
 
-                        sh '''
-                        echo $PASS | docker login -u $USER --password-stdin
+                        sh """
+                        echo \$PASS | docker login -u \$USER --password-stdin
+
                         docker build -t $IMAGE_NAME:$TAG .
+
                         docker push $IMAGE_NAME:$TAG
+
                         docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
                         docker push $IMAGE_NAME:latest
-                        '''
+                        """
                     }
                 }
             }
@@ -65,16 +71,10 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:latest
-    command: ['sh', '-c', 'cat']
+    image: bitnami/kubectl:1.30
+    command: ["sleep"]
+    args: ["99d"]
     tty: true
-    volumeMounts:
-    - name: workspace
-      mountPath: /home/jenkins/agent
-
-  volumes:
-  - name: workspace
-    emptyDir: {}
 """
                 }
             }
@@ -82,8 +82,14 @@ spec:
             steps {
                 container('kubectl') {
                     sh """
+                    sleep 5
+
+                    kubectl get nodes
+
                     kubectl apply -f k8s/
-                    kubectl set image deployment/demo-ci-cd demo-ci-cd=$IMAGE_NAME:$TAG
+
+                    kubectl set image deployment/demo-ci-cd \
+                        demo-ci-cd=$IMAGE_NAME:$TAG
                     """
                 }
             }
