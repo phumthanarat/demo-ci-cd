@@ -24,12 +24,12 @@ spec:
   containers:
   - name: docker
     image: docker:26-cli
-    command:
-    - cat
+    command: ['sh', '-c', 'cat']
     tty: true
     volumeMounts:
     - name: dockersock
       mountPath: /var/run/docker.sock
+
   volumes:
   - name: dockersock
     hostPath:
@@ -66,9 +66,15 @@ spec:
   containers:
   - name: kubectl
     image: bitnami/kubectl:latest
-    command:
-    - cat
+    command: ['sh', '-c', 'cat']
     tty: true
+    volumeMounts:
+    - name: workspace
+      mountPath: /home/jenkins/agent
+
+  volumes:
+  - name: workspace
+    emptyDir: {}
 """
                 }
             }
