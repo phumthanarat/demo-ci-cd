@@ -67,7 +67,7 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:1.30
+    image: bitnami/kubectl:latest   # ✅ FIXED
     command: ["cat"]
     tty: true
 """
