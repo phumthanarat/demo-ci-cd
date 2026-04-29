@@ -4,6 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = "phumthanarat/demo-ci-cd"
         TAG = "${BUILD_NUMBER}"
+        REGISTRY = "docker.io"
     }
 
     stages {
@@ -14,7 +15,7 @@ pipeline {
             }
         }
 
-        stage('Build & Push') {
+        stage('Build & Push (Kaniko)') {
             agent {
                 kubernetes {
                     yaml """
@@ -22,41 +23,28 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
-  - name: docker
-    image: docker:26-cli
-    command: ["cat"]
-    tty: true
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:latest
+    args:
+      - "--dockerfile=Dockerfile"
+      - "--context=dir://."
+      - "--destination=$IMAGE_NAME:$TAG"
+      - "--destination=$IMAGE_NAME:latest"
     volumeMounts:
-    - name: dockersock
-      mountPath: /var/run/docker.sock
-
+    - name: docker-config
+      mountPath: /kaniko/.docker
+  restartPolicy: Never
   volumes:
-  - name: dockersock
-    hostPath:
-      path: /var/run/docker.sock
+  - name: docker-config
+    secret:
+      secretName: dockerhub-creds
 """
                 }
             }
 
             steps {
-                container('docker') {
-                    withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'USER',
-                        passwordVariable: 'PASS'
-                    )]) {
-
-                        sh """
-                        echo $PASS | docker login -u $USER --password-stdin
-
-                        docker build -t $IMAGE_NAME:$TAG .
-
-                        docker push $IMAGE_NAME:$TAG
-
-                        docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
-                        docker push $IMAGE_NAME:latest
-                        """
-                    }
+                container('kaniko') {
+                    sh "echo Building and pushing image..."
                 }
             }
         }
@@ -70,8 +58,9 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:latest
-    command: ["cat"]
+    image: bitnami/kubectl:1.29.5
+    command: ["sleep"]
+    args: ["infinity"]
     tty: true
 """
                 }
@@ -80,16 +69,12 @@ spec:
             steps {
                 container('kubectl') {
                     sh """
-                    echo "Deploying to Kubernetes..."
-
-                    kubectl get nodes
-
                     kubectl apply -f k8s/
 
                     kubectl set image deployment/demo-ci-cd \
                         demo-ci-cd=$IMAGE_NAME:$TAG
 
-                    kubectl rollout status deployment/demo-ci-cd
+                    kubectl rollout status deployment/demo-ci-cd --timeout=120s
                     """
                 }
             }
