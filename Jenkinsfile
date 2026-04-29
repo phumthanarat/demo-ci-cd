@@ -67,8 +67,9 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:latest   # ✅ FIXED
-    command: ["cat"]
+    image: bitnami/kubectl:1.29.0
+    command: ["sleep"]
+    args: ["infinity"]
     tty: true
 """
                 }
@@ -76,7 +77,9 @@ spec:
 
             steps {
                 container('kubectl') {
-                    sh '''
+                    sh '''#!/bin/sh
+                        set -e
+
                         kubectl version --client
                         kubectl get nodes
 
