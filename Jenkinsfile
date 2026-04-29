@@ -12,6 +12,7 @@ pipeline {
             agent {
                 kubernetes {
                     label 'docker-agent'
+                    defaultContainer 'docker'
                     yaml """
 apiVersion: v1
 kind: Pod
@@ -19,8 +20,7 @@ spec:
   containers:
   - name: docker
     image: docker:26-cli
-    command:
-    - cat
+    command: ["cat"]
     tty: true
     volumeMounts:
     - name: dockersock
@@ -37,23 +37,17 @@ spec:
             steps {
                 container('docker') {
                     withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub-token',
+                        credentialsId: 'dockerhub-creds',
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
 
                         sh '''
-                            echo "=== Docker Version ==="
-                            docker version
+                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
-                            echo "=== Login ==="
-                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-
-                            echo "=== Build ==="
                             docker build -t $IMAGE:$TAG .
                             docker tag $IMAGE:$TAG $IMAGE:latest
 
-                            echo "=== Push ==="
                             docker push $IMAGE:$TAG
                             docker push $IMAGE:latest
                         '''
@@ -63,13 +57,30 @@ spec:
         }
 
         stage('Deploy') {
-            agent any
+            agent {
+                kubernetes {
+                    label 'kubectl-agent'
+                    defaultContainer 'kubectl'
+                    yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command: ["cat"]
+    tty: true
+"""
+                }
+            }
 
             steps {
-                sh '''
-                    kubectl apply -f k8s/
-                    kubectl rollout status deployment/demo-ci-cd
-                '''
+                container('kubectl') {
+                    sh '''
+                        kubectl apply -f k8s/
+                        kubectl rollout status deployment/demo-ci-cd
+                    '''
+                }
             }
         }
     }
