@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: demo-ci-cd
-  namespace: jenkins   
+  namespace: jenkins
 spec:
   replicas: 3
   selector:
@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: web
-        image: phumthanarat/demo-ci-cd:
+        image: phumthanarat/demo-ci-cd:63   # ✔ ต้องมี tag เสมอ
         ports:
         - containerPort: 80
