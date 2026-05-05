@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: demo-ci-cd
-  namespace: prod
+  namespace: jenkins
 spec:
   replicas: 3
   selector:
