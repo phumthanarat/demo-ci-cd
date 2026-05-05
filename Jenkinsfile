@@ -4,7 +4,6 @@ pipeline {
     environment {
         IMAGE_NAME = "phumthanarat/demo-ci-cd"
         TAG = "${BUILD_NUMBER}"
-        REGISTRY = "docker.io"
     }
 
     stages {
@@ -25,15 +24,12 @@ spec:
   containers:
   - name: kaniko
     image: gcr.io/kaniko-project/executor:latest
-    args:
-      - "--dockerfile=Dockerfile"
-      - "--context=dir://."
-      - "--destination=$IMAGE_NAME:$TAG"
-      - "--destination=$IMAGE_NAME:latest"
+    command:
+    - cat
+    tty: true
     volumeMounts:
     - name: docker-config
       mountPath: /kaniko/.docker
-  restartPolicy: Never
   volumes:
   - name: docker-config
     secret:
@@ -44,7 +40,14 @@ spec:
 
             steps {
                 container('kaniko') {
-                    sh "echo Building and pushing image..."
+                    sh """
+                    /kaniko/executor \
+                      --dockerfile=Dockerfile \
+                      --context=$(pwd) \
+                      --destination=${IMAGE_NAME}:${TAG} \
+                      --destination=${IMAGE_NAME}:latest \
+                      --skip-tls-verify
+                    """
                 }
             }
         }
@@ -58,9 +61,9 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:1.29.5
-    command: ["sleep"]
-    args: ["infinity"]
+    image: bitnami/kubectl:latest
+    command:
+    - cat
     tty: true
 """
                 }
@@ -70,11 +73,7 @@ spec:
                 container('kubectl') {
                     sh """
                     kubectl apply -f k8s/
-
-                    kubectl set image deployment/demo-ci-cd \
-                        demo-ci-cd=$IMAGE_NAME:$TAG
-
-                    kubectl rollout status deployment/demo-ci-cd --timeout=120s
+                    kubectl set image deployment/demo-ci-cd demo-ci-cd=${IMAGE_NAME}:${TAG} -n default
                     """
                 }
             }
