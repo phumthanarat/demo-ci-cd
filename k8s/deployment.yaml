@@ -4,7 +4,7 @@ metadata:
   name: demo-ci-cd
   namespace: jenkins
 spec:
-  replicas: 30
+  replicas: 23
   selector:
     matchLabels:
       app: demo-ci-cd
