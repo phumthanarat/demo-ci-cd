@@ -4,6 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = "phumthanarat/demo-ci-cd"
         TAG = "${BUILD_NUMBER}"
+        REGISTRY = "docker.io"
     }
 
     stages {
@@ -14,7 +15,7 @@ pipeline {
             }
         }
 
-        stage('Build & Push') {
+        stage('Build & Push (Kaniko)') {
             agent {
                 kubernetes {
                     yaml """
@@ -24,12 +25,15 @@ spec:
   containers:
   - name: kaniko
     image: gcr.io/kaniko-project/executor:latest
-    command:
-    - cat
-    tty: true
+    args:
+      - "--dockerfile=Dockerfile"
+      - "--context=dir://."
+      - "--destination=$IMAGE_NAME:$TAG"
+      - "--destination=$IMAGE_NAME:latest"
     volumeMounts:
     - name: docker-config
       mountPath: /kaniko/.docker
+  restartPolicy: Never
   volumes:
   - name: docker-config
     secret:
@@ -40,14 +44,7 @@ spec:
 
             steps {
                 container('kaniko') {
-                    sh """
-                    /kaniko/executor \
-                      --dockerfile=Dockerfile \
-                      --context=$(pwd) \
-                      --destination=$IMAGE_NAME:$TAG \
-                      --destination=$IMAGE_NAME:latest \
-                      --skip-tls-verify
-                    """
+                    sh "echo Building and pushing image..."
                 }
             }
         }
@@ -61,9 +58,9 @@ kind: Pod
 spec:
   containers:
   - name: kubectl
-    image: bitnami/kubectl:latest
-    command:
-    - cat
+    image: bitnami/kubectl:1.29.5
+    command: ["sleep"]
+    args: ["infinity"]
     tty: true
 """
                 }
@@ -73,7 +70,11 @@ spec:
                 container('kubectl') {
                     sh """
                     kubectl apply -f k8s/
-                    kubectl set image deployment/demo-ci-cd demo-ci-cd=$IMAGE_NAME:$TAG
+
+                    kubectl set image deployment/demo-ci-cd \
+                        demo-ci-cd=$IMAGE_NAME:$TAG
+
+                    kubectl rollout status deployment/demo-ci-cd --timeout=120s
                     """
                 }
             }
