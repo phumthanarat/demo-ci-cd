@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: phumthanarat/demo-ci-cd:v1.0.0
+        image: phumthanarat/demo-ci-cd:9
         ports:
         - containerPort: 80
 
